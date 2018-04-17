@@ -1,0 +1,580 @@
+<head>
+    <title>Fool me once - Game</title>
+    <link rel="shortcut icon" href="public_html/img/diamond.ico" />
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+</head>
+
+
+<body style="background-image: url('http://isthmusmontessoriacademy.org/wp-content/uploads/2016/02/green-background-for-website-and-photoshop.jpg');background-repeat: no-repeat;width: 100%;height: 100%;">
+
+    <div id="gameDiv">
+        <canvas id="ctx"></canvas>
+    </div>
+
+    <div id="loader" style="display:none"></div>
+
+    <div id="gameOver" style="display:none">
+        <div class="container">
+            <h1 style="text-align: center;color: white">Game over</h1><br>
+            <div class="jumbotron">
+                <form class="register-form" action="/lobby" method="POST">
+                    <input type="hidden" name="username" value="<%= name %>" />
+                    <button type="submit" class="btn btn-primary btn-block">return to lobby</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+<script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
+<script>
+    var socket = io();
+
+    var height = screen.height;
+    var width = screen.width;
+
+
+    //game variables
+    //note game can be on and player just waiting for another player
+    var gameon = false;
+    var gameoff = false;
+
+    //the player can either be making a move or guessing
+    var yourTurn = false;
+    var guessing = false;
+
+    //this indicates the user has clicked the start box
+    var gameStart = false;
+    var betting = false;
+
+    //variables used in the game
+    var move, bet, opponent, player, xPos, yPos, time, middleCard, playerCard;
+
+    var score = [];
+    var data = [];
+    var guessData = [];
+
+    var ctx = document.getElementById("ctx").getContext("2d");
+    ctx.canvas.width = window.innerWidth;
+    ctx.canvas.height = window.innerHeight;
+    ctx.textAlign = "center";
+    ctx.font = '40px trench';
+
+
+    //if this socket called game is over
+    socket.on('gameoff', function() {
+        gameoff = true;
+    });
+
+    //this is the gameloop that will be running continiously
+    function gameLoop() {
+
+        //get game info 
+        socket.on('yourTurn', function(data) {
+            yourTurn = data.turn;
+            guessing = data.guessing;
+            opponentData = data.Data;
+            middleCard = data.middleCard;
+            playerCard = data.playerCard;
+            player = data.player;
+            score = data.score;
+            gameon = true;
+        });
+
+        ctx.clearRect(0, 0, width, height);
+
+
+
+
+        //if game finished display score and give users an option to return to the lobby
+        if (gameoff) {gameOff();}
+        
+        else {
+            //Game on player can be guessing, betting or its their making a move
+            if (gameon == true && yourTurn == true) {
+                
+                if (guessing == true) {playerGuessing();} 
+
+                else if (yourTurn == true && betting == true) {PlaceBet();} 
+
+                else {playerTurn();}
+            }
+
+            //Else you may be waiting for the other player to complete their move 
+            else if (gameon == true && yourTurn == false) {playerWaitingForMove();}
+
+            //Else you may be waiting for another player to join the game
+            else if (gameon == false) {playerWaitingForOpponent();}
+        }
+    
+
+    }
+
+
+
+
+    function gameOff() {
+
+        document.getElementById('gameDiv').style.display = "none";
+        document.getElementById('gameOver').style.display = "block";
+        document.getElementById('loader').style.display = "none";
+        ctx.fillStyle = "white";
+        ctx.fillText("Game Over", width / 2, 3 * (height / 12));
+        if (player == 0) {
+            var player2 = 1
+        } else {
+            var player2 = 0
+        }
+
+        ctx.fillText("SCORE", width / 2, 4 * (height / 12));
+        ctx.fillText(score[player] + " : " + score[player2], width / 2, 4.5 * (height / 12));
+
+        var img = new Image;
+        img.src = 'public_html/img/arrow.png';
+        ctx.drawImage(img, width * (0.25 / 6), 10, width / 15, height / 8);
+
+        ctx.font = '20px trench';
+        ctx.fillStyle = "yellow";
+        ctx.fillText("If you want to play again", width * (1.25 / 6), (height / 12));
+        ctx.fillText("hit the refresh button", width * (1.25 / 6), 1.5 * (height / 12));
+        ctx.fillText("somewhere up here", width * (1.25 / 6), 2 * (height / 12));
+        ctx.font = '40px trench';
+        ctx.fillStyle = "white";
+    }
+
+
+
+
+    function playerTurn() {
+        document.getElementById('loader').style.display = "none";
+        if (gameStart == false) {
+            //draw start box
+            ctx.roundRect(width * (5 / 12), height * (7 / 12), 'Start');
+
+            var righta = new Image;
+            righta.src = 'public_html/img/arrowRight.png';
+            ctx.drawImage(righta, width / 3, height / 1.6, width / 15, height / 8);
+
+            var lefta = new Image;
+            lefta.src = 'public_html/img/arrowLeft.png';
+            //draw player card
+            ctx.drawImage(lefta, width / 1.95, height / 1.6, width / 15, height / 8);
+
+            ctx.font = '30px trench';
+            ctx.fillStyle = "yellow";
+            ctx.fillText("Click in start to begin the game", width * (5.5 / 12), 9.5 * (height / 12));
+            ctx.fillStyle = "white";
+            ctx.font = '40px trench';
+        }
+
+        //here we initiate the game
+        if (gameStart == true) {
+
+
+            var img2 = new Image;
+            img2.src = 'public_html/img/cards/' + playerCard + '.png';
+            //draw player card
+            ctx.drawImage(img2, xPos - (width / 30), yPos - (height / 16), width / 15, height / 8);
+
+            ctx.font = '30px trench';
+            ctx.fillStyle = "yellow";
+            ctx.fillText("move the card to the higher or lower box (Hint you can lie)", width * (5.5 / 12), 9.5 * (height / 12));
+            ctx.fillStyle = "white";
+            ctx.font = '40px trench';
+
+            if (xPos > ((1 / 12) * width) && xPos < ((2 / 12) * width) && yPos > (40) && yPos < (40 + (1 / 7) * height) && gameStart == true) {
+                gameStart = false;
+                move = false;
+                if (!guessing) {
+                    betting = true;
+                }
+            }
+
+            if (xPos > ((9 / 12) * width) && xPos < ((10 / 12) * width) && yPos > (40) && yPos < (40 + (1 / 7) * height) && gameStart == true) {
+                gameStart = false;
+                move = true
+                if (!guessing) {
+                    betting = true;
+                }
+            }
+        }
+
+        //middle card
+        var img = new Image;
+        if (gameStart == true) {
+            img.src = 'public_html/img/cards/' + middleCard + '.png';
+        } else {
+            img.src = 'public_html/img/cards/back.png';
+        }
+
+
+        //draw middle card lower and higher boxes
+        ctx.drawImage(img, width * (2.5 / 6), 10, width / 15, height / 8);
+        ctx.roundRect(width * (1 / 12), 40, 'Lower');
+        ctx.roundRect(width * (9 / 12), 40, 'Higher');
+
+        displayScore();
+
+    }
+
+
+
+
+    function playerGuessing() {
+
+        document.getElementById('loader').style.display = "none";
+        if (gameStart == false) {
+            //draw start box
+            ctx.roundRect(width * (5 / 12), height * (7 / 12), 'Guess');
+            var righta = new Image;
+            righta.src = 'public_html/img/arrowRight.png';
+            ctx.drawImage(righta, width / 3, height / 1.6, width / 15, height / 8);
+
+            var lefta = new Image;
+            lefta.src = 'public_html/img/arrowLeft.png';
+            //draw player card
+            ctx.drawImage(lefta, width / 1.95, height / 1.6, width / 15, height / 8);
+
+            ctx.font = '30px trench';
+            ctx.fillStyle = "yellow";
+            ctx.fillText("Click in Guess to make a guess", width * (5.5 / 12), 9.5 * (height / 12));
+            ctx.fillStyle = "white";
+            ctx.font = '40px trench';
+
+            var timeNow = new Date();
+
+            if (time == null || (timeNow.getTime() - time.getTime()) / 1000 > opponentData[opponentData.length - 1].time) {
+                time = new Date();
+            }
+            //here we get the time difference in seconds
+            var timestamp = (timeNow.getTime() - time.getTime()) / 1000;
+
+            var img3 = new Image;
+            img3.src = 'public_html/img/cards/back.png';
+
+
+            //draw opponent card
+            display:
+                for (var i = 0; i < opponentData.length; i++) {
+                    if (timestamp < opponentData[i].time) {
+                        ctx.drawImage(img3, opponentData[i].xpos * width - (width / 30), opponentData[i].ypos * height - (height / 16), width / 15, height / 8);
+                        break display;
+                    }
+                }
+
+            //middle card
+            var img = new Image;
+            img.src = 'public_html/img/cards/' + middleCard + '.png';
+
+            //draw middle card, lower and higher boxes
+            ctx.drawImage(img, width * (2.5 / 6), 10, width / 15, height / 8);
+            ctx.roundRect(width * (1 / 12), 40, 'Lower');
+            ctx.roundRect(width * (9 / 12), 40, 'Higher');
+
+        }
+
+        if (gameStart == true) {
+
+            ctx.font = '30px trench';
+            ctx.fillStyle = "yellow";
+            ctx.fillText("Click in the truth or lie box", width * (5.5 / 12), 9.5 * (height / 12));
+            ctx.fillStyle = "white";
+            ctx.font = '40px trench';
+
+            //implement guess here
+            ctx.roundRect(width * (1 / 12), 40, 'truth');
+            ctx.roundRect(width * (9 / 12), 40, 'Lie');
+
+        }
+        
+        displayScore();
+    }
+
+
+
+
+    function playerWaitingForMove() {
+        document.getElementById('loader').style.display = "block";
+        ctx.fillStyle = "white";
+        ctx.fillText("Waiting for the other player to finish their move", width / 2, height / 3);
+        displayScore();
+    }
+
+
+    function playerWaitingForOpponent(){
+
+        ctx.fillStyle = "white";
+        ctx.fillText("Waiting for another player", width / 2, height / 3);
+        document.getElementById('loader').style.display = "block";
+    }
+
+
+
+
+    function PlaceBet() {
+        document.getElementById('loader').style.display = "none";
+        ctx.fillText("How much do you want to bet?", width / 2, height / 4);
+
+        //draw boxes that user can place be it
+        ctx.roundRect(width * (0.5 / 12), height * (3 / 7), 'Bet 5');
+        ctx.roundRect(width * (2.5 / 12), height * (3 / 7), 'Bet 10');
+        ctx.roundRect(width * (4.5 / 12), height * (3 / 7), 'Bet 20');
+        ctx.roundRect(width * (6.5 / 12), height * (3 / 7), 'Bet 30');
+        ctx.roundRect(width * (8.5 / 12), height * (3 / 7), 'Bet 40');
+        ctx.roundRect(width * (10.5 / 12), height * (3 / 7), 'Bet 50');
+
+        //draw poker chip
+        var img = new Image;
+        img.src = 'public_html/img/pokerchip.png';
+        ctx.drawImage(img, xPos - (width / 30), yPos - (width / 30), width / 15, width / 15);
+    }
+
+
+
+
+    function placeBet(bet) {
+        var moveData = {
+            data: data,
+            move: move,
+            bet: bet,
+            playerMove: "<%= name %>"
+        }
+        console.log(data);
+        socket.emit('data', moveData);
+        data = [];
+        betting = false;
+        yourTurn = false;
+    }
+
+
+
+
+    //when mouse clicked
+    document.onmousedown = function(event) {
+
+        //start game if user clicks in starting square
+        if (xPos > ((2.5 / 6) * width) && xPos < ((1 / 2) * width) && yPos > ((7 / 12) * height) && yPos < (7 / 12 + 1 / 7) * height && gameStart == false) {
+            //time starts when user clicks on the start button
+            time = new Date();
+            gameStart = true;
+        }
+
+        //this is for clicking on a guess
+        if (xPos > ((1 / 12) * width) && xPos < ((2 / 12) * width) && yPos > 40 && yPos < (40 + (1 / 7) * height) && gameon == true && yourTurn == true && guessing == true) {
+
+            var guessdata = {
+                data: opponentData,
+                guess: true,
+                playerGuess: "<%= name %>",
+                guessData: guessData
+            }
+            console.log(guessData);
+            socket.emit('guess', guessdata);
+            gameStart = false;
+            guessData = [];
+            guessing = false;
+        }
+
+        if (xPos > ((9 / 12) * width) && xPos < ((10 / 12) * width) && yPos > 40 && yPos < (40 + (1 / 7) * height) && gameon == true && yourTurn == true && guessing == true) {
+
+            var guessdata = {
+                data: opponentData,
+                guess: false,
+                playerGuess: "<%= name %>",
+                guessData: guessData
+            }
+            console.log(guessData);
+            socket.emit('guess', guessdata);
+            gameStart = false;
+            guessData = [];
+            guessing = false;
+        }
+
+        //this is for placing a bet
+        if (xPos > ((0.5 / 12) * width) && xPos < ((1.5 / 12) * width) && yPos > height * (2 / 7) && yPos > height * (3 / 7) && betting == true) {
+            placeBet(5);
+        }
+        if (xPos > ((2.5 / 12) * width) && xPos < ((3.5 / 12) * width) && yPos > height * (2 / 7) && yPos > height * (3 / 7) && betting == true) {
+            placeBet(10);
+        }
+        if (xPos > ((4.5 / 12) * width) && xPos < ((5.5 / 12) * width) && yPos > height * (2 / 7) && yPos > height * (3 / 7) && betting == true) {
+            placeBet(20);
+        }
+        if (xPos > ((6.5 / 12) * width) && xPos < ((7.5 / 12) * width) && yPos > height * (2 / 7) && yPos > height * (3 / 7) && betting == true) {
+            placeBet(30);
+        }
+        if (xPos > ((8.5 / 12) * width) && xPos < ((9.5 / 12) * width) && yPos > height * (2 / 7) && yPos > height * (3 / 7) && betting == true) {
+            placeBet(40);
+        }
+        if (xPos > ((10.5 / 12) * width) && xPos < ((11.5 / 12) * width) && yPos > height * (2 / 7) && yPos > height * (3 / 7) && betting == true) {
+            placeBet(50);
+        }
+    }
+
+
+
+
+    //when mouse moves update the x and y components
+    document.onmousemove = function(event) {
+        xPos = event.clientX;
+        yPos = event.clientY;
+
+        if (gameStart == true) {
+            //here we get the time difference in seconds
+            var timeNow = new Date();
+            var timestamp = (timeNow.getTime() - time.getTime()) / 1000;
+            var xpoint = xPos / width;
+            var ypoint = yPos / height;
+
+            //create an object with the xposition yposition and the timestamp
+            var dataPoint = {
+                xpos: xpoint,
+                ypos: ypoint,
+                time: timestamp
+            }
+
+            if (guessing == true) {
+                guessData.push(dataPoint);
+            } else {
+                data.push(dataPoint);
+            }
+        }
+    }
+
+
+
+
+    function displayScore() {
+        //draw score
+        if (player == 0) {
+            var player2 = 1
+        } else {
+            var player2 = 0
+        }
+
+        var img = new Image;
+        img.src = 'public_html/img/pokerchip.png';
+        ctx.drawImage(img, width * (11.1 / 12), (1.5 / 12) * height, width / 15, width / 15);
+        ctx.drawImage(img, width * (11.1 / 12), (7.5 / 12) * height, width / 15, width / 15);
+
+        ctx.fillText("<%= name %>", (11.5 / 12) * width, (1 / 12) * height);
+        ctx.fillText(score[player], (11.5 / 12) * width, (3.5 / 12) * height);
+        ctx.fillText(score[player2], (11.5 / 12) * width, (9.5 / 12) * height);
+
+        var amount = 200 - score[player] - score[player2];
+
+        if (!amount == 0) {
+            ctx.fillText("Bet:", (11.5 / 12) * width, (5 / 12) * height);
+            ctx.fillText(amount, (11.5 / 12) * width, (5.7 / 12) * height);
+        }
+    }
+
+    function direction(x, y, direction, text) {
+        var img = new Image;
+        img.src = 'public_html/img/arrow' + direction + '.png';
+        ctx.drawImage(img, width * (x), height * (y), height / 8, width / 15);
+
+        ctx.font = '30px trench';
+        ctx.fillStyle = "yellow";
+        ctx.fillText(text, width * (x) - width / 30, height * (y) + height / 8);
+        ctx.fillStyle = "white";
+        ctx.font = "40px trench";
+    }
+
+
+
+    //this function creates the box and text used for higher, lower and start boxes
+    CanvasRenderingContext2D.prototype.roundRect = function(sx, sy, text) {
+
+        var ex = sx + height / 7;
+        var ey = sy + width / 12;
+        var r = 10;
+
+        var r2d = Math.PI / 180;
+        if ((ex - sx) - (2 * r) < 0) {
+            r = ((ex - sx) / 2);
+        } //ensure that the radius isn't too large for x
+        if ((ey - sy) - (2 * r) < 0) {
+            r = ((ey - sy) / 2);
+        } //ensure that the radius isn't too large for y
+        this.lineWidth = 5;
+        this.beginPath();
+        this.moveTo(sx + r, sy);
+        this.lineTo(ex - r, sy);
+        this.arc(ex - r, sy + r, r, r2d * 270, r2d * 360, false);
+        this.lineTo(ex, ey - r);
+        this.arc(ex - r, ey - r, r, r2d * 0, r2d * 90, false);
+        this.lineTo(sx + r, ey);
+        this.arc(sx + r, ey - r, r, r2d * 90, r2d * 180, false);
+        this.lineTo(sx, sy + r);
+        this.arc(sx + r, sy + r, r, r2d * 180, r2d * 270, false);
+
+        this.font = "30px trench";
+        this.fillText(text, ex - ((ex - sx) / 2), ey - ((ey - sy) / 2));
+        this.closePath();
+        ctx.strokeStyle = "#FFFF00";
+        ctx.stroke();
+        ctx.font = "40px trench";
+
+    }
+
+    //this recalls the gameloop function 30 times per second
+    setInterval(gameLoop, 1000 / 30);
+</script>
+
+<style>
+    @font-face {
+        font-family: "trench";
+        src: url("public_html/fonts/bariol_regular-webfont.eot");
+        src: url("public_html/fonts/bariol_regular-webfont.woff") format("woff"),
+        url("public_html/fonts/bariol_regular-webfont.otf") format("opentype"),
+        url("public_html/fonts/bariol_regular-webfont.svg#filename") format("svg");
+    }
+
+
+
+
+    #loader {
+        animation: animate 1.5s linear infinite;
+        clip: rect(0, 80px, 80px, 40px);
+        height: 80px;
+        width: 80px;
+        position: absolute;
+        left: calc(50% - 40px);
+        top: calc(50% - 40px);
+    }
+
+    @keyframes animate {
+        0% {
+            transform: rotate(0deg)
+        }
+        100% {
+            transform: rotate(220deg)
+        }
+    }
+
+    #loader:after {
+        animation: animate2 1.5s ease-in-out infinite;
+        clip: rect(0, 80px, 80px, 40px);
+        content: '';
+        border-radius: 50%;
+        height: 80px;
+        width: 80px;
+        position: absolute;
+    }
+
+    @keyframes animate2 {
+        0% {
+            box-shadow: inset #fff 0 0 0 17px;
+            transform: rotate(-140deg);
+        }
+        50% {
+            box-shadow: inset #fff 0 0 0 2px;
+        }
+        100% {
+            box-shadow: inset #fff 0 0 0 17px;
+            transform: rotate(140deg);
+        }
+</style>
