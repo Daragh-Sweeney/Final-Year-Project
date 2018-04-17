@@ -1,226 +1,103 @@
-
 <head>
-    <title>Higher or Lower</title>
-    <link rel="stylesheet" type="text/css" href="public_html/style.css">
+    <title>Fool me once</title>
+    <link rel="shortcut icon" href="public_html/img/diamond.ico" />
+  	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
 </head>
 
-<body>
-<div id="gameDiv">
-    <canvas id="ctx"></canvas>
-</div>
+<body style = "background-image: url('http://isthmusmontessoriacademy.org/wp-content/uploads/2016/02/green-background-for-website-and-photoshop.jpg');background-repeat: no-repeat;width: 100%;height: 100%;">
+	
+	<div class="container" >
+		<h1 style = "text-align: center;color: white">Fool me once</h1><br>
+  		<div class="jumbotron" >
+
+  			<h2>Log in or Sign up</h2><br>
+
+  			<div class="form">
+
+    			<form class="register-form" action = "/signup" method="POST">
+    				<h3>Sign up with a unique username and password</h3><br>
+      				<input type="text" placeholder="username" name = "username" />
+      				<input type="password" placeholder="password" name = "password"/>
+      				<button>create</button>
+      				<p class="message">Already registered? <a href="#">Sign In</a></p>
+    			</form>
+
+    			<form class="login-form" action = "/login" method="POST">
+    				<h3>Sign in with your username and password</h3><br>
+      				<input type="text" placeholder="username" name = "username"/>
+      				<input type="password" placeholder="password" name = "password"/>
+      				<button type = "submit">login</button>
+      				<p class="message">Not registered? <a href="#">Create an account</a></p>
+    			</form>
+
+  			</div>
+		</div>
+	</div>
+
 </body>
 
-<script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
-<script>
-var socket = io();
-var height = screen.height;
-var width = screen.width;
+
+
+
+<!-- JavaScript to animate the form -->
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
+<script type="text/javascript">
 	
-//game begins turned off
-var gameon = false;
-var yourTurn = false;
-var gameStart = false;
-var guessing = true;
+$('.message a').click(function(){
+   $('form').animate({height: "toggle", opacity: "toggle"}, "slow");
+});
 
-//x and y positions and time variable
-var xPos,yPos,time;
-
-//this will contain the data that will be stored 
-var data=[];
-var opponentData=[];
- 
-//game variables
-var numPlayers = 1;
-var middleCard;
-var playerCard;
-var ctx = document.getElementById("ctx").getContext("2d");
-ctx.canvas.width  = window.innerWidth;
-ctx.canvas.height = window.innerHeight;
-ctx.font = '30px Arial';
-
-//this starts up the game
-socket.on('gameon', function(){gameon=true;});
-
-//this is the gameloop that will be running continiously
-function gameLoop(){
-	
-    //get game info 
-	socket.on('numPlayers', function(data){numPlayers = data;});
-	socket.on('yourTurn', function(data){
-        yourTurn = data.turn;
-        guessing = data.guessing;
-        opponentData = data.Data;
-        middleCard = data.middleCard;
-        playerCard = data.playerCard;
-    });
-		
-    ctx.clearRect(0,0,width,height);
-		
-    //Game on can be player guessing or playing
-    if(gameon == true && yourTurn == true){
-        if(guessing == true){playerGuessing();}
-        else{playerTurn();}
-
-        //middle card
-        var img = new Image;
-        img.src = 'public_html/img/cards/'+middleCard+'.png';
-
-        //draw middle card
-        ctx.drawImage(img,width*(2.5/6),10,width/15,height/8);
-        //number of active players
-        ctx.fillText(numPlayers+" players active",width*(5/6),40);
-        //lower box
-        ctx.roundRect(width*(1/6),40,width*(1/6)+width/12,40+height/8,20,'Lower');
-        //higher box
-        ctx.roundRect(width*(4/6),40,width*(4/6)+width/12,40+height/8,20,'Higher');
-
-    }   
-
-    //Else you may be waiting for the other player to complete their move 
-    else if(gameon == true && yourTurn == false){playerWaiting();}
-
-    //Else you may be waiting for another player
-    else if(gameon == false){
-        ctx.fillStyle = "black";
-        ctx.textAlign = "center";
-        ctx.font = "30px Arial";
-        ctx.fillText("Waiting for another player",width/2,height/3); 
-    } 
-}
-
-function playerTurn(){
-    if(gameStart == false){
-        //draw start box
-        ctx.roundRect(width*(2.5/6),height*(2/3),width*(2.5/6)+width/12,height*(2/3)+height/8,20,'Click here to start game');
-    }
-
-    //here we initiate the game
-    if(gameStart == true){
-            
-        //here we get the time difference in seconds
-        var timeNow = new Date();
-        var timestamp = (timeNow.getTime()-time.getTime())/1000;
-        ctx.fillText(Math.floor(timestamp)+" seconds passed",width*(5/6),80);
-
-        //create an object with the xposition yposition and the timestamp
-        var dataPoint = {xpos:xPos,ypos:yPos,time:timestamp}
-            
-        data.push(dataPoint);
-
-        var img2 = new Image;
-        img2.src = 'public_html/img/cards/'+playerCard+'.png';
-        //draw player card
-        ctx.drawImage(img2,xPos-(width/30),yPos-(height/16),width/15,height/8);
-            
-        if(xPos>((1/6)*width) && xPos<((3/12)*width) && yPos>(40) && yPos<(40+(1/8)*height)&& gameStart == true){
-            gameStart=false;
-            yourTurn=false;
-            alert("You have chosen lower!"); ;
-            socket.emit('data',data);
-            data = [];
-        }
-        //ctx.roundRect(width*(4/6),40,width*(4/6)+width/12,40+height/8,20,'Higher');
-        if(xPos>((4/6)*width) && xPos<((9/12)*width) && yPos>(40) && yPos<(40+(1/8)*height) && gameStart == true){
-            gameStart = false;
-            yourTurn = false;
-            alert("You have chosen higher!");
-            socket.emit('data',data);
-            data = [];
-        }
-    }
-}
-
-function playerGuessing(){
-    var timeNow = new Date();
-    
-    if(time == null || (timeNow.getTime()-time.getTime())/1000 > opponentData[opponentData.length-1].time){time=new Date();}
-    //here we get the time difference in seconds
-    var timestamp = (timeNow.getTime()-time.getTime())/1000;
-
-    ctx.fillText(Math.floor(timestamp)+" seconds passed",width*(5/6),80);
-
-    var img3 = new Image;
-    img3.src = 'public_html/img/cards/back.png';
-
-
-    //draw opponent card
-    display:
-    for(var i=0;i<opponentData.length;i++){
-        if(timestamp<opponentData[i].time){
-            ctx.drawImage(img3,opponentData[i].xpos-(width/30),opponentData[i].ypos-(height/16),width/15,height/8);
-           break display;
-        }
-    }
-    
-
-    //implement guess here
-    ctx.roundRect(width*(5/6),height/4,width*(5/6)+width/12,height/4+height/8,20,'truth');
-    ctx.roundRect(width*(5/6),2*height/4,width*(5/6)+width/12,(2*height)/4+height/8,20,'Lie');
-
-    if(xPos>((5/6)*width) && xPos<((11/12)*width) && yPos>(height/4) && yPos<(height/4+(1/8)*height)){
-        alert("You have guessed they are a truther!"); 
-        socket.emit('guess',opponentData);
-        guessing = false;
-    }
-
-    if(xPos>((5/6)*width) && xPos<((11/12)*width) && yPos>(2*height/4) && yPos<((2*height/4)+(1/8)*height)){
-        alert("You have guessed they are a lier!"); 
-        socket.emit('guess',opponentData);
-        guessing = false;
-    }
-}
-
-function playerWaiting(){
-    ctx.fillStyle = "black";
-    ctx.textAlign = "center";
-    ctx.font = "30px Arial";
-    ctx.fillText("Waiting for the other guy to finish his move, but heres a cat",width/2,height/3); 
-        
-    var waiting = new Image;
-    waiting.src = 'https://orig00.deviantart.net/104e/f/2015/256/d/1/cat_png_by_kasirun_hasibuan-d99ey1q.png';
-    ctx.drawImage(waiting,width*(2/6),height/3,width/4,height/2);
-}
-
-//when mouse clicked
-document.onmousedown = function(event){
-	//start game if user clicks in starting square
-    if(xPos>((2.5/6)*width) && xPos<((1/2)*width) && yPos>((2/3)*height) && yPos<(19/24)*height && gameStart == false){
-		//time starts when user clicks on the start button
-        time=new Date();
-        gameStart = true;
-    }
-}
-	
-//when mouse moves update the x and y components
-document.onmousemove = function(event){
-    xPos = event.clientX;
-    yPos = event.clientY;
-}
-
-//this function creates the box and text used for higher, lower and start boxes
-CanvasRenderingContext2D.prototype.roundRect = function(sx,sy,ex,ey,r,text) {
-    var r2d = Math.PI/180;
-    if( ( ex - sx ) - ( 2 * r ) < 0 ) { r = ( ( ex - sx ) / 2 ); } //ensure that the radius isn't too large for x
-    if( ( ey - sy ) - ( 2 * r ) < 0 ) { r = ( ( ey - sy ) / 2 ); } //ensure that the radius isn't too large for y
-    this.beginPath();
-    this.moveTo(sx+r,sy);
-    this.lineTo(ex-r,sy);
-    this.arc(ex-r,sy+r,r,r2d*270,r2d*360,false);
-    this.lineTo(ex,ey-r);
-    this.arc(ex-r,ey-r,r,r2d*0,r2d*90,false);
-    this.lineTo(sx+r,ey);
-    this.arc(sx+r,ey-r,r,r2d*90,r2d*180,false);
-    this.lineTo(sx,sy+r);
-    this.arc(sx+r,sy+r,r,r2d*180,r2d*270,false);
-
-    this.textAlign="center"; 
-    this.font = "20px Arial";
-    this.fillText(text,ex-((ex-sx)/2),sy-10); 
-    this.closePath();
-    ctx.strokeStyle = "#FFFF00";
-    ctx.stroke();
-}
-	
-//this recalls the gameloop function 30 times per second
-setInterval(gameLoop, 1000 / 30);
 </script>
+
+
+
+<!-- some extra styling for the log in / sign up form -->
+<style type="text/css">
+	@import url(https://fonts.googleapis.com/css?family=Roboto:300);
+
+.form {
+  position: relative;
+  background: #f2f2f2;
+  padding: 45px;
+  text-align: center;
+}
+.form input {
+  outline: 0;
+  background: #FFFFFF;
+  width: 100%;
+  border: 0;
+  margin: 0 0 15px;
+  padding: 15px;
+  box-sizing: border-box;
+  font-size: 14px;
+}
+.form button {
+  text-transform: uppercase;
+  outline: 0;
+  background: #4CAF50;
+  width: 100%;
+  border: 0;
+  padding: 15px;
+  color: #FFFFFF;
+  font-size: 14px;
+  -webkit-transition: all 0.3 ease;
+  transition: all 0.3 ease;
+  cursor: pointer;
+}
+.form button:hover,.form button:active,.form button:focus {
+  background: #43A047;
+}
+.form .message {
+  margin: 15px 0 0;
+  color: #b3b3b3;
+  font-size: 12px;
+}
+.form .message a {
+  color: #4CAF50;
+  text-decoration: none;
+}
+.form .register-form {
+  display: none;
+}
+</style>
+
