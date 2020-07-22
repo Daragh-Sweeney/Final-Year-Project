@@ -57,9 +57,7 @@ MongoClient.connect("mongodb://mongodb3832sd:ji1maw@danu7.it.nuigalway.ie:8717/m
 
     app.post('/signup', urlencodedParser, function(req, res) {
 
-        dbase.collection("Users").findOne({
-            name: req.body.username
-        }, function(err, result) {
+        dbase.collection("Users").findOne({name: req.body.username}, function(err, result) {
             if (result) {
                 res.sendFile(__dirname + '/public_html/index.html');
             } else if (!result) {
@@ -68,7 +66,8 @@ MongoClient.connect("mongodb://mongodb3832sd:ji1maw@danu7.it.nuigalway.ie:8717/m
                 var data = {
                     name: req.body.username,
                     password: req.body.password,
-                    score: 1000
+                    score: 1000,
+                    pic :(1 + Math.floor(Math.random() * 8))
                 }
                 dbase.collection("Users").insertOne(data, function(err, res) {});
 
@@ -233,11 +232,17 @@ MongoClient.connect("mongodb://mongodb3832sd:ji1maw@danu7.it.nuigalway.ie:8717/m
         if (Object.size(lobby) > 1) {
 
 
-            var middleCard = 2 + Math.floor(Math.random() * 8);
-            var playerCard = 1 + Math.floor(Math.random() * 10);
-            while (playerCard == middleCard) {
-                middleCard = 2 + Math.floor(Math.random() * 8);
+            var middleCardValue = 2 + Math.floor(Math.random() * 8);
+            var playerCardValue = 1 + Math.floor(Math.random() * 10);
+            while (playerCardValue == middleCardValue) {
+                middleCardValue = 2 + Math.floor(Math.random() * 8);
             }
+
+            var suit1 =Math.floor(Math.random() * 4);
+            var suit2 =Math.floor(Math.random() * 4);
+
+            var middleCard = middleCardValue + (10 * suit1);
+            var playerCard = playerCardValue + (10 * suit2);
 
             var game = {
                 players: lobby,
@@ -248,11 +253,14 @@ MongoClient.connect("mongodb://mongodb3832sd:ji1maw@danu7.it.nuigalway.ie:8717/m
                 Data: null,
                 middleCard: middleCard,
                 playerCard: playerCard,
-                score: [100, 100],
+                middleCardValue:middleCardValue,
+                playerCardValue:playerCardValue,
+                score: [50, 50],
                 gameID: "" + new Date(),
                 gameOff: false,
                 winner: null,
-                looser: null
+                looser: null,
+                bet:null
             };
 
             //push your game into the game array and empty the lobby
@@ -293,13 +301,14 @@ MongoClient.connect("mongodb://mongodb3832sd:ji1maw@danu7.it.nuigalway.ie:8717/m
                 //this is the data we will send to the player
                 var playerData = {
                     player: count,
-                    //playerNames,
+                    beat:Games[i].bet,
                     turn: Games[i].playerOn[count],
                     Data: Games[i].Data,
                     guessing: Games[i].guessing,
                     middleCard: Games[i].middleCard,
                     playerCard: Games[i].playerCard,
-                    score: Games[i].score
+                    score: Games[i].score,
+                    round:Games[i].round
                 }
 
                 socket.emit('yourTurn', playerData);
@@ -314,9 +323,11 @@ MongoClient.connect("mongodb://mongodb3832sd:ji1maw@danu7.it.nuigalway.ie:8717/m
                         if (Games[i].playerOn[0] == true) {
                             Games[i].playerOn = [false, true];
                             Games[i].score[0] = Games[i].score[0] - data.bet;
+                            Games[i].score[1] = Games[i].score[1] - data.bet;
                         } else {
                             Games[i].playerOn = [true, false];
                             Games[i].score[1] = Games[i].score[1] - data.bet;
+                            Games[i].score[0] = Games[i].score[0] - data.bet;
                         }
 
                         //update data
@@ -325,19 +336,22 @@ MongoClient.connect("mongodb://mongodb3832sd:ji1maw@danu7.it.nuigalway.ie:8717/m
                         Games[i].playerMove = data.playerMove;
 
                         //determine if player lying or not
-                        if (Games[i].playerCard > Games[i].middleCard && data.move == true) {
-                            Games[i].move = true;
-                        } else if (Games[i].playerCard < Games[i].middleCard && data.move == false) {
-                            Games[i].move = true;
-                        } else {
-                            Games[i].move = false;
-                        }
+                        if (Games[i].playerCardValue > Games[i].middleCardValue && data.move == true) {Games[i].move = true;} 
+                        else if (Games[i].playerCardValue < Games[i].middleCardValue && data.move == false) {Games[i].move = true;} 
+                        else {Games[i].move = false;}
 
                         //pass the game into guessing mode
                         Games[i].guessing = true;
                         delay++;
                     }
                 });
+
+
+
+
+
+
+
 
                 //if game sends a guess then data saved to database along with all info 
                 socket.on('guess', function(data) {
@@ -346,45 +360,39 @@ MongoClient.connect("mongodb://mongodb3832sd:ji1maw@danu7.it.nuigalway.ie:8717/m
                         Games[i].guess = data.guess;
                         Games[i].playerGuess = data.playerGuess;
 
-                        //update score
+                        //update score if guesser wins
                         if (Games[i].guess == Games[i].move) {
-                            if (Games[i].playerOn[0]) {
-                                Games[i].score[0] = Games[i].score[0] + Games[i].bet;
-                            } else {
-                                Games[i].score[1] = Games[i].score[1] + Games[i].bet;
-                            }
 
+                            if (Games[i].playerOn[0]) {Games[i].score[0] = Games[i].score[0] + 2*Games[i].bet;} 
+                            else {Games[i].score[1] = Games[i].score[1] + 2*Games[i].bet;}
                             var win = Games[i].playerGuess;
                             var loose = Games[i].playerMove;
-                        } else {
-                            if (Games[i].playerOn[0]) {
-                                Games[i].score[1] = Games[i].score[1] + 2 * Games[i].bet;
-                                Games[i].score[0] = Games[i].score[0] - Games[i].bet
-                            } else {
-                                Games[i].score[0] = Games[i].score[0] + 2 * Games[i].bet;
-                                Games[i].score[1] = Games[i].score[1] - Games[i].bet
-                            }
 
+                        }
+
+
+                        //update score if player wins
+                         else {
+
+                            if (Games[i].playerOn[0]) {Games[i].score[1] = Games[i].score[1] + 2*Games[i].bet;}
+                            else {Games[i].score[0] = Games[i].score[0] + 2*Games[i].bet;}
                             var loose = Games[i].playerGuess;
                             var win = Games[i].playerMove;
                         }
 
 
-
+                        //find out if move higher or lower
                         var move;
-                        if (Games[i].playerMove) {
-                            move = 'higher'
-                        } else {
-                            move = 'lower'
-                        }
+                        if (Games[i].playerMove == true) {move = 'higher'}
+                        else {move = 'lower'}
 
                         //data to be inserted to the database
                         var myobj = {
                             gameid: Games[i].gameID,
                             playermoved: Games[i].playerMove,
                             playerGuessed: Games[i].playerGuess,
-                            centreCard: Games[i].middleCard,
-                            playerCard: Games[i].playerCard,
+                            centreCard: Games[i].middleCardValue,
+                            playerCard: Games[i].playerCardValue,
                             move: move,
                             playermove: Games[i].Data,
                             bet: Games[i].bet,
@@ -404,17 +412,25 @@ MongoClient.connect("mongodb://mongodb3832sd:ji1maw@danu7.it.nuigalway.ie:8717/m
                             EndGame(i, j);
                         }
 
-                        var middleCard = 2 + Math.floor(Math.random() * 8);
-                        var playerCard = 1 + Math.floor(Math.random() * 9);
-                        //make sure cards are not the same
-                        while ((playerCard % 10 == middleCard % 10) || (middleCard % 10 == 0) || (middleCard % 10 == 1)) {
-                            middleCard = 2 + Math.floor(Math.random() * 8);
-                        }
+                        var middleCardValue = 2 + Math.floor(Math.random() * 8);
+            			var playerCardValue = 1 + Math.floor(Math.random() * 10);
+            			while (playerCardValue == middleCardValue) {
+               	 			middleCardValue = 2 + Math.floor(Math.random() * 8);
+            			}
 
-                        Games[i].middleCard = middleCard;
-                        Games[i].playerCard = playerCard;
+            			var suit1 =Math.floor(Math.random() * 4);
+            			var suit2 =Math.floor(Math.random() * 4);
+
+            			var middleCard = middleCardValue + (10 * suit1);
+            			var playerCard = playerCardValue + (10 * suit2);
+
+                		Games[i].middleCardValue = middleCardValue;
+                		Games[i].playerCardValue = playerCardValue;
+                		Games[i].middleCard = middleCard;
+                		Games[i].playerCard = playerCard;
                         Games[i].guessing = false;
                         Games[i].Data = null;
+                        Games[i].round = Games[i].round++;
                     }
                 });
                 count++;
@@ -428,7 +444,7 @@ MongoClient.connect("mongodb://mongodb3832sd:ji1maw@danu7.it.nuigalway.ie:8717/m
 
 
 
-    //functions used
+ 
 
 
     //returns the size of arrays
@@ -441,108 +457,26 @@ MongoClient.connect("mongodb://mongodb3832sd:ji1maw@danu7.it.nuigalway.ie:8717/m
         return size;
     };
 
-    function Move() {
-
-    }
-
-    function Guess(i, j, delay) {
-
-        var socket = Games[i].players[j];
-        //if game sends a guess then data saved to database along with all info 
-        socket.on('guess', function(data) {
-            if (delay == 0) {
-
-                Games[i].guess = data.guess;
-                Games[i].playerGuess = data.playerGuess;
-
-                //update score
-                if (Games[i].guess == Games[i].move) {
-                    if (Games[i].playerOn[0]) {
-                        Games[i].score[0] = Games[i].score[0] + Games[i].bet;
-                    } else {
-                        Games[i].score[1] = Games[i].score[1] + Games[i].bet;
-                    }
-
-                    var win = Games[i].playerGuess;
-                    var loose = Games[i].playerMove;
-                } else {
-                    if (Games[i].playerOn[0]) {
-                        Games[i].score[1] = Games[i].score[1] + 2 * Games[i].bet;
-                        Games[i].score[0] = Games[i].score[0] - Games[i].bet
-                    } else {
-                        Games[i].score[0] = Games[i].score[0] + 2 * Games[i].bet;
-                        Games[i].score[1] = Games[i].score[1] - Games[i].bet
-                    }
-
-                    var loose = Games[i].playerGuess;
-                    var win = Games[i].playerMove;
-                }
-
-                if (Games[i].score[0] <= 0 || Games[i].score[1] <= 0) {
-                    Games[i].winner = win;
-                    Games[i].looser = loose;
-                    EndGame(i, j);
-                }
-
-                var move;
-                if (Games[i].playerMove) {
-                    move = 'higher'
-                } else {
-                    move = 'lower'
-                }
-
-                //data to be inserted to the database
-                var myobj = {
-                    gameid: Games[i].gameID,
-                    playermoved: Games[i].playerMove,
-                    playerGuessed: Games[i].playerGuess,
-                    centreCard: Games[i].middleCard,
-                    playerCard: Games[i].playerCard,
-                    move: move,
-                    playermove: Games[i].Data,
-                    bet: Games[i].bet,
-                    guess: data.guess,
-                    playerguess: data.guessData,
-                    chips: Games[i].score
-                };
 
 
-                dbase.collection("moves").insertOne(myobj, function(err, res) {});
-                console.log("document inserted");
-                delay++;
 
-                var middleCard = 2 + Math.floor(Math.random() * 8);
-                var playerCard = 1 + Math.floor(Math.random() * 9);
-                //make sure cards are not the same
-                while ((playerCard % 10 == middleCard % 10) || (middleCard % 10 == 0) || (middleCard % 10 == 1)) {
-                    middleCard = 2 + Math.floor(Math.random() * 8);
-                }
 
-                Games[i].middleCard = middleCard;
-                Games[i].playerCard = playerCard;
-                Games[i].guessing = false;
-                Games[i].Data = null;
-            }
-        });
-        return delay;
-    }
 
-    function UpdatePlayer() {
-
-    }
-
+    //ends the game updates the database and removes game from game list
     function EndGame(i, j) {
 
         Games[i].gameOff = true;
         //update bot players that game has ended
         for (var j in Games[i].players) {
+            
             var socket = Games[i].players[j];
-            socket.emit('gameoff')
+            socket.emit('gameoff',Games[i].winner)
         }
 
         var win = Games[i].winner;
         var loose = Games[i].looser;
 
+        //update the data base with updated elo values
         dbase.collection("Users").findOne({
             name: win
         }, function(err, result1) {
@@ -561,16 +495,8 @@ MongoClient.connect("mongodb://mongodb3832sd:ji1maw@danu7.it.nuigalway.ie:8717/m
                 var E2 = R2 / (R1 + R2);
 
                 // Updated Elo values
-                var update = {
-                    $set: {
-                        score: (winner.score + 32 * (1 - E1))
-                    }
-                }
-                var update2 = {
-                    $set: {
-                        score: (looser.score + 32 * (0 - E2))
-                    }
-                }
+                var update = {$set: {score: Math.floor((winner.score + 100 * (1 - E1)))}}
+                var update2 = {$set: {score: Math.floor((looser.score + 100 * (0 - E2)))}}
 
                 dbase.collection("Users").updateOne({
                     name: winner.name

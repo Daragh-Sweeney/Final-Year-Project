@@ -13,16 +13,12 @@
 
     <div id="loader" style="display:none"></div>
 
-    <div id="gameOver" style="display:none">
-        <div class="container">
-            <h1 style="text-align: center;color: white">Game over</h1><br>
-            <div class="jumbotron">
+    <div id="gameOver" style="display:none;background-color: transparent;position: fixed;bottom: 0;width: 100%;padding: 0% 30% 5% 30%;">
                 <form class="register-form" action="/lobby" method="POST">
                     <input type="hidden" name="username" value="<%= name %>" />
                     <button type="submit" class="btn btn-primary btn-block">return to lobby</button>
                 </form>
-            </div>
-        </div>
+
     </div>
 
 </body>
@@ -30,6 +26,7 @@
 <script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
 <script>
+
     var socket = io();
 
     var height = screen.height;
@@ -50,9 +47,12 @@
     var betting = false;
 
     //variables used in the game
-    var move, bet, opponent, player, xPos, yPos, time, middleCard, playerCard;
+    var move, bet, opponent, player, xPos, yPos, time, middleCard, playerCard, winner;
 
-    var score = [];
+    var maxBet = 50;
+    var round = 1;
+
+    var score = [50,50];
     var data = [];
     var guessData = [];
 
@@ -64,8 +64,9 @@
 
 
     //if this socket called game is over
-    socket.on('gameoff', function() {
+    socket.on('gameoff', function(data) {
         gameoff = true;
+        winner = data;
     });
 
     //this is the gameloop that will be running continiously
@@ -79,8 +80,10 @@
             middleCard = data.middleCard;
             playerCard = data.playerCard;
             player = data.player;
+            if(score[player] != data.score[player]){updateScore(score,data.score)}
             score = data.score;
             gameon = true;
+            bet = data.bet;
         });
 
         ctx.clearRect(0, 0, width, height);
@@ -97,7 +100,7 @@
                 
                 if (guessing == true) {playerGuessing();} 
 
-                else if (yourTurn == true && betting == true) {PlaceBet();} 
+                else if (betting == true) {PlaceBet();} 
 
                 else {playerTurn();}
             }
@@ -117,31 +120,24 @@
 
     function gameOff() {
 
-        document.getElementById('gameDiv').style.display = "none";
+        document.getElementById('gameDiv').style.display = "block";
         document.getElementById('gameOver').style.display = "block";
         document.getElementById('loader').style.display = "none";
         ctx.fillStyle = "white";
         ctx.fillText("Game Over", width / 2, 3 * (height / 12));
-        if (player == 0) {
-            var player2 = 1
-        } else {
-            var player2 = 0
+
+        if("<%= name %>" == winner){
+            ctx.fillText("congratulations <%= name %> you won", width / 2, 4 * (height / 12));
         }
 
-        ctx.fillText("SCORE", width / 2, 4 * (height / 12));
+        else{
+            ctx.fillText("Unlucky <%= name %> you lost", width / 2, 4 * (height / 12));
+        }
+
+        
         ctx.fillText(score[player] + " : " + score[player2], width / 2, 4.5 * (height / 12));
 
-        var img = new Image;
-        img.src = 'public_html/img/arrow.png';
-        ctx.drawImage(img, width * (0.25 / 6), 10, width / 15, height / 8);
-
-        ctx.font = '20px trench';
-        ctx.fillStyle = "yellow";
-        ctx.fillText("If you want to play again", width * (1.25 / 6), (height / 12));
-        ctx.fillText("hit the refresh button", width * (1.25 / 6), 1.5 * (height / 12));
-        ctx.fillText("somewhere up here", width * (1.25 / 6), 2 * (height / 12));
-        ctx.font = '40px trench';
-        ctx.fillStyle = "white";
+        displayScore();
     }
 
 
@@ -149,6 +145,7 @@
 
     function playerTurn() {
         document.getElementById('loader').style.display = "none";
+        document.getElementById('gameOver').style.display = "none";
         if (gameStart == false) {
             //draw start box
             ctx.roundRect(width * (5 / 12), height * (7 / 12), 'Start');
@@ -224,6 +221,7 @@
 
     function playerGuessing() {
 
+        document.getElementById('gameOver').style.display = "none";
         document.getElementById('loader').style.display = "none";
         if (gameStart == false) {
             //draw start box
@@ -296,6 +294,7 @@
 
 
     function playerWaitingForMove() {
+        document.getElementById('gameOver').style.display = "none";
         document.getElementById('loader').style.display = "block";
         ctx.fillStyle = "white";
         ctx.fillText("Waiting for the other player to finish their move", width / 2, height / 3);
@@ -308,6 +307,7 @@
         ctx.fillStyle = "white";
         ctx.fillText("Waiting for another player", width / 2, height / 3);
         document.getElementById('loader').style.display = "block";
+        document.getElementById('gameOver').style.display = "block";
     }
 
 
@@ -317,13 +317,19 @@
         document.getElementById('loader').style.display = "none";
         ctx.fillText("How much do you want to bet?", width / 2, height / 4);
 
+        if(score[0]<score[1]){maxBet = score[0];}
+        else{maxBet = score[1];}
         //draw boxes that user can place be it
         ctx.roundRect(width * (0.5 / 12), height * (3 / 7), 'Bet 5');
-        ctx.roundRect(width * (2.5 / 12), height * (3 / 7), 'Bet 10');
-        ctx.roundRect(width * (4.5 / 12), height * (3 / 7), 'Bet 20');
-        ctx.roundRect(width * (6.5 / 12), height * (3 / 7), 'Bet 30');
-        ctx.roundRect(width * (8.5 / 12), height * (3 / 7), 'Bet 40');
-        ctx.roundRect(width * (10.5 / 12), height * (3 / 7), 'Bet 50');
+
+        if(maxBet>=10){ctx.roundRect(width * (2.5 / 12), height * (3 / 7), 'Bet 10');}
+        if(maxBet>=20){ctx.roundRect(width * (4.5 / 12), height * (3 / 7), 'Bet 20');}
+        if(maxBet>=30){ctx.roundRect(width * (6.5 / 12), height * (3 / 7), 'Bet 30');}
+        if(maxBet>=40){ctx.roundRect(width * (8.5 / 12), height * (3 / 7), 'Bet 40');}
+        if(maxBet>=50){ctx.roundRect(width * (10.5 / 12), height * (3 / 7), 'Bet 50');}
+        if(maxBet<40){ctx.roundRect(width * (10.5 / 12), height * (3 / 7), 'Match:'+ maxBet);}
+
+        
 
         //draw poker chip
         var img = new Image;
@@ -334,11 +340,11 @@
 
 
 
-    function placeBet(bet) {
+    function placeBet(amountBet) {
         var moveData = {
             data: data,
             move: move,
-            bet: bet,
+            bet: amountBet,
             playerMove: "<%= name %>"
         }
         console.log(data);
@@ -392,25 +398,33 @@
             guessing = false;
         }
 
+        if(score[0]<score[1]){maxBet = score[0];}
+        else{maxbet = score[1];}
+
         //this is for placing a bet
-        if (xPos > ((0.5 / 12) * width) && xPos < ((1.5 / 12) * width) && yPos > height * (2 / 7) && yPos > height * (3 / 7) && betting == true) {
+        if (xPos > ((0.5 / 12) * width) && xPos < ((1.5 / 12) * width) && yPos > height * (2 / 7) && yPos > height * (3 / 7) && betting == true && maxBet>=5) {
             placeBet(5);
         }
-        if (xPos > ((2.5 / 12) * width) && xPos < ((3.5 / 12) * width) && yPos > height * (2 / 7) && yPos > height * (3 / 7) && betting == true) {
+        if (xPos > ((2.5 / 12) * width) && xPos < ((3.5 / 12) * width) && yPos > height * (2 / 7) && yPos > height * (3 / 7) && betting == true && maxBet>=10) {
             placeBet(10);
         }
-        if (xPos > ((4.5 / 12) * width) && xPos < ((5.5 / 12) * width) && yPos > height * (2 / 7) && yPos > height * (3 / 7) && betting == true) {
+        if (xPos > ((4.5 / 12) * width) && xPos < ((5.5 / 12) * width) && yPos > height * (2 / 7) && yPos > height * (3 / 7) && betting == true && maxBet>=20) {
             placeBet(20);
         }
-        if (xPos > ((6.5 / 12) * width) && xPos < ((7.5 / 12) * width) && yPos > height * (2 / 7) && yPos > height * (3 / 7) && betting == true) {
+        if (xPos > ((6.5 / 12) * width) && xPos < ((7.5 / 12) * width) && yPos > height * (2 / 7) && yPos > height * (3 / 7) && betting == true && maxBet>=30) {
             placeBet(30);
         }
-        if (xPos > ((8.5 / 12) * width) && xPos < ((9.5 / 12) * width) && yPos > height * (2 / 7) && yPos > height * (3 / 7) && betting == true) {
+        if (xPos > ((8.5 / 12) * width) && xPos < ((9.5 / 12) * width) && yPos > height * (2 / 7) && yPos > height * (3 / 7) && betting == true && maxBet>=40) {
             placeBet(40);
         }
-        if (xPos > ((10.5 / 12) * width) && xPos < ((11.5 / 12) * width) && yPos > height * (2 / 7) && yPos > height * (3 / 7) && betting == true) {
+        if (xPos > ((10.5 / 12) * width) && xPos < ((11.5 / 12) * width) && yPos > height * (2 / 7) && yPos > height * (3 / 7) && betting == true && maxBet>=50) {
             placeBet(50);
         }
+        if (xPos > ((10.5 / 12) * width) && xPos < ((11.5 / 12) * width) && yPos > height * (2 / 7) && yPos > height * (3 / 7) && betting == true && maxBet<40) {
+            placeBet(maxBet);
+        }
+
+
     }
 
 
@@ -448,28 +462,28 @@
 
     function displayScore() {
         //draw score
-        if (player == 0) {
-            var player2 = 1
-        } else {
-            var player2 = 0
-        }
+        if (player == 0) {var player2 = 1} 
+        else {var player2 = 0}
 
         var img = new Image;
         img.src = 'public_html/img/pokerchip.png';
         ctx.drawImage(img, width * (11.1 / 12), (1.5 / 12) * height, width / 15, width / 15);
-        ctx.drawImage(img, width * (11.1 / 12), (7.5 / 12) * height, width / 15, width / 15);
+        ctx.drawImage(img, width * (11.1 / 12), (7 / 12) * height, width / 15, width / 15);
 
         ctx.fillText("<%= name %>", (11.5 / 12) * width, (1 / 12) * height);
         ctx.fillText(score[player], (11.5 / 12) * width, (3.5 / 12) * height);
-        ctx.fillText(score[player2], (11.5 / 12) * width, (9.5 / 12) * height);
+        ctx.fillText(score[player2], (11.5 / 12) * width, (9 / 12) * height);
+        ctx.fillText("Enemy", (11.5 / 12) * width, (9.7 / 12) * height);
 
-        var amount = 200 - score[player] - score[player2];
+        var amount = 100 - score[player] - score[player2];
 
         if (!amount == 0) {
-            ctx.fillText("Bet:", (11.5 / 12) * width, (5 / 12) * height);
+            ctx.fillText("Pot:", (11.5 / 12) * width, (5 / 12) * height);
             ctx.fillText(amount, (11.5 / 12) * width, (5.7 / 12) * height);
         }
     }
+
+
 
     function direction(x, y, direction, text) {
         var img = new Image;
@@ -481,6 +495,16 @@
         ctx.fillText(text, width * (x) - width / 30, height * (y) + height / 8);
         ctx.fillStyle = "white";
         ctx.font = "40px trench";
+    }
+
+    function updateScore(oldScore, newScore){
+
+        var difference = oldScore[player] - newScore[player];
+    
+        if(difference>0 && yourTurn == true){alert('The opponent bet : '+difference+' chips, current pot : '+(difference*2)+" chips");}
+        if(difference<0){alert('you won : '+(-difference)+' chips');}
+        
+
     }
 
 

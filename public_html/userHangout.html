@@ -1,5 +1,5 @@
 <head>
-    <title>Fool me once -<%= name %></title>
+    <title>Fool me once - <%= name %></title>
     <link rel="shortcut icon" href="public_html/img/diamond.ico" />
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
 </head>
@@ -13,49 +13,61 @@
 
 
 
+          <div class="col-md-6">
+
+            <!--Display Username and image-->
             <div class="col-md-6">
-                <div class="col-md-6">
-                    <h2><u><%= name %></u></h2>
-                    <img src="public_html/img/player.jpeg" style="width:90%;height:40%;">
-                </div>
-                <div class="col-md-6">
-                    <br><br><br><br><br><br>
-                    <h3 id="score"></h3><br>
-                    <h3 id="ranking"></h3><br>
-                </div>
+              <h2 style="text-align: center" ><u><%= name %></u></h2>
+              <img id = "image" src="" style="width:100%;height:35%;">
+            </div>
+            
+
+            <!--Display current score and world ranking-->
+            <div class="col-md-6">
+              <br><br><br><br><br><br>
+                <h3 id="score"></h3><br>
+                <h3 id="ranking"></h3><br>
             </div>
 
-            <div class="col-md-6">
-                <h2><u>Leaderboard</u></h2><br>
-                <table class="table">
-                    <thead class="thead-light" id="table">
-                        <tr>
-                            <th>Name</th>
-                            <th>Score</th>
-                        </tr>
-                    </thead>
-                </table>
-            </div>
+          </div>
 
 
+          <!--Display leaderboard-->
+          <div class="col-md-6">
+            <h2 style="text-align: center"><u>Leaderboard</u></h2><br>
+            <table class="table">
+              <thead class="thead-light" id="table">
+                <tr>
+                  <th>Name</th>
+                  <th>Score</th>
+                </tr>
+              </thead>
+            </table>
+          </div>
+
+
+          <div class="col-md-6">
 
 
             <!--get placed into a game-->
-            <h2>Want to play?</h2><br>
+              <h2>Want to play?</h2><br>
 
             <form class="register-form" action="/game" method="POST">
                 <input type="hidden" name="username" value="<%= name %>" />
                 <button type="submit" class="btn btn-primary btn-block">Join a Game !!! </button>
             </form>
+          </div>
 
+          <div class="col-md-6">
+            <br>
             <h2>Don't know how to play?</h2>
-
+          
             <form class="register-form" action="/tutorial" method="POST">
                 <input type="hidden" name="username" value="<%= name %>" />
                 <button type="submit" class="btn btn-primary btn-block">Tutorial</button>
             </form>
-
-
+          </div>
+          <h1>.</h1>
         </div>
     </div>
 
@@ -87,19 +99,21 @@
 
             //finds the players score and ranking by using their name as an identifier 
             var ranking = findWithAttr(userData, 'name', "<%= name %>") + 1;
-            var score = userData[ranking - 1].score;
+            
 
-            //updates page with users score and ranking
+            //updates page with users score and ranking and picture
+            var score = userData[ranking - 1].score;
+            var pic = userData[ranking - 1].pic;
             document.getElementById("score").innerHTML = "Score : " + score;
             document.getElementById("ranking").innerHTML = "Ranking : " + ranking;
-
+            document.getElementById("image").src = "public_html/img/avitar/player"+pic+".png";
         }
     });
 
 
 
 
-    //comparator used
+    //comparator used to compare two users based on their score
     function compare(a, b) {
         if (a.score < b.score)
             return 1;
@@ -108,12 +122,15 @@
         return 0;
     }
 
+    //Find a value in an array of objects based on an attribute
     function findWithAttr(array, attr, value) {
-        for (var i = 0; i < array.length; i += 1) {
-            if (array[i][attr] === value) {
-                return i;
-            }
+      for (var i = 0; i < array.length; i += 1) {
+        if (array[i][attr] === value) {
+          return i;
         }
-        return -1;
+      }
+      return -1;
     }
+
+
 </script>

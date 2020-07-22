@@ -35,22 +35,22 @@
 
                 <h2 style="text-align: center">Select all</h2>
                 <form name="myform" action="/allInfo" method="POST">
-                    
+                    <p><br>
                     <input type="submit">
+                    <p><br>
                 </form>
             </div>
 
 
 
             <div id="gameDiv">
-              <p><br>
                 <h2 id="id">No data selected</h2>
                 <canvas id="ctx"></canvas>
             </div>
 
             <form name="myform" action="javascript:drawPath();">
                 <h3>Select a move : <select name="moves" id="moves"></select>
-                    <input type="submit" value="view move"></h3>
+                <input type="submit" value="view move"></h3>
             </form>
 
 
@@ -88,7 +88,7 @@
                 </div>
             </div>
             
-            <br><br>
+            <br><br><p><br>
             <input type="button" value="Download csv" onclick="createCSV();">
 
 
@@ -153,6 +153,7 @@
     ctx.roundRect(width * (9 / 12), 40, 'Higher / lie');
     ctx.roundRect(width * (5 / 12), height * (7 / 12), 'Start');
 
+    
 
     //Gets game and user information
     $.ajax({
@@ -181,6 +182,8 @@
 
 
     data = <%-JSON.stringify(data)%>;
+    console.log(data);
+    
     for (var i in data.data) {
         var num = (parseInt(i) + 1);
         $('#moves').append('<option> Move : ' + num + "" + '</option>');
@@ -192,15 +195,16 @@
 
 
     function createCSV(){
-      const rows = [["Name", "Time", "Distance","MiddleCard","PlayerCard","distancefromcard","Move"]];
+      const rows = [["Time", "XCordinate","Ycordinate","Move","Guess"]];
 
-      for(var i in data.data){
+      for(var i in data.data[document.getElementById("moves").selectedIndex].playermove){
 
-        var m;
+        /*var m;
         if((data.data[i].playerCard > data.data[i].centreCard && data.data[i].move == 'higher')||
           (data.data[i].playerCard < data.data[i].centreCard && data.data[i].move == 'lower')) {
           m =true;}
         else{m=false;}
+
 
         var changeOfMind = 0;
         var length = 0;
@@ -208,29 +212,57 @@
           if(j>0){
             var previous = data.data[i].playermove[j-1];
             var current =data.data[i].playermove[j];
-            length += ((current.xpos - previous.xpos)^2+(current.ypos - previous.ypos)^2)^0.5
+            length += ((current.xpos - previous.xpos)^2+(current.ypos - previous.ypos)^2)^0.5;
 
 
           }
 
-        }
+        }*/
 
         try {
-          
-        
 
+        var an = "";
+        var gu =  "";
+        if(i == 0){
+        if((data.data[document.getElementById("moves").selectedIndex].playerCard > data.data[document.getElementById("moves").selectedIndex].centreCard && data.data[document.getElementById("moves").selectedIndex].move == 'higher')
+
+            ||
+
+          (data.data[document.getElementById("moves").selectedIndex].playerCard < data.data[document.getElementById("moves").selectedIndex].centreCard && data.data[document.getElementById("moves").selectedIndex].move == 'lower')) {
+            var an = true;
+        } else {
+            var an = false;
+        }
+
+        var gu = data.data[document.getElementById("moves").selectedIndex].guess
+
+
+        }
+        
         var entry = [
+          data.data[document.getElementById("moves").selectedIndex].playermove[i].time,
+          data.data[document.getElementById("moves").selectedIndex].playermove[i].xpos,
+          data.data[document.getElementById("moves").selectedIndex].playermove[i].ypos,
+          an,
+          gu
+        ];
+
+
+        /*var entry = [
         data.data[i].playermoved,
         data.data[i].playermove[data.data[i].playermove.length - 1].time,
         length,
         data.data[i].centreCard,
         data.data[i].playerCard,
         Math.abs(data.data[i].centreCard-data.data[i].playerCard),
-        m]
+        m,
+        data.data[i].guess]*/
         rows.push(entry);
+
+
         }
         catch(err) {
-          
+          console.log(i);
         }
       }
 
@@ -256,6 +288,18 @@
         var background = new Image();
         background.src = "http://isthmusmontessoriacademy.org/wp-content/uploads/2016/02/green-background-for-website-and-photoshop.jpg";
         ctx.drawImage(background, 0, 0);
+
+        ctx.font = '20px trench';
+        ctx.fillStyle = "black";
+        ctx.fillRect(width*0.05  , height*0.8, 10, 10);
+        ctx.fillText(" : Move Trajectory", width*0.15, height*0.82);
+
+        ctx.fillStyle = "red";
+        ctx.fillRect(width*0.75, height*0.8, 10, 10);
+        ctx.fillText(" : Guess Trajectory", width*0.85, height*0.82);
+        ctx.fillStyle = "black";
+
+        
 
         ctx.roundRect(width * (1 / 12), 40, 'Lower / truth');
         ctx.roundRect(width * (9 / 12), 40, 'Higher / lie');
@@ -283,10 +327,11 @@
         document.getElementById("playerCard").innerHTML = data.data[document.getElementById("moves").selectedIndex].playerCard;
         document.getElementById("middleCard").innerHTML = data.data[document.getElementById("moves").selectedIndex].centreCard;
 
-        if ((data.data[document.getElementById("moves").selectedIndex].playerCard > data.data[document.getElementById("moves").selectedIndex].centreCard && data.data[document.getElementById("moves").selectedIndex].move == 'higher')
+        if((data.data[document.getElementById("moves").selectedIndex].playerCard > data.data[document.getElementById("moves").selectedIndex].centreCard && data.data[document.getElementById("moves").selectedIndex].move == 'higher')
 
             ||
-            (data.data[document.getElementById("moves").selectedIndex].playerCard < data.data[document.getElementById("moves").selectedIndex].centreCard && data.data[document.getElementById("moves").selectedIndex].move == 'lower')) {
+
+          (data.data[document.getElementById("moves").selectedIndex].playerCard < data.data[document.getElementById("moves").selectedIndex].centreCard && data.data[document.getElementById("moves").selectedIndex].move == 'lower')) {
             var move = "truth";
         } else {
             var move = "lie";
